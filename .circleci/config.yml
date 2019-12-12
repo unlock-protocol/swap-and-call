@@ -1,0 +1,90 @@
+version: 2.1
+jobs:
+  build:
+    docker:
+      - image: circleci/node:10
+    working_directory: ~/repo
+    steps:
+      - checkout
+
+      - run: npm i
+      - run: npm run compile
+
+      - persist_to_workspace:
+          root: ~/repo
+          paths: .
+  test:
+    docker:
+      - image: circleci/node:10
+      - image: trufflesuite/ganache-cli:v6.8.1-beta.0
+        command: ganache-cli -k istanbul
+    working_directory: ~/repo
+    steps:
+      - attach_workspace:
+          at: ~/repo
+
+      - run: npm run test
+
+      - run: cd samples/truffle && npm i
+      - run: cd samples/truffle && npm run test
+
+      - run: npm run lintNoFix
+  coverage:
+    docker:
+      - image: circleci/node:10
+    working_directory: ~/repo
+    steps:
+      - attach_workspace:
+          at: ~/repo
+
+      - run: npm run coverage
+
+  publish:
+    docker:
+      - image: circleci/node:10
+    working_directory: ~/repo
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$npm_TOKEN" > ~/repo/.npmrc
+      - run:
+          name: Publish package
+          command: npm publish
+
+workflows:
+  build:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore:
+                - gh-pages
+                - artifacts
+      - test:
+          requires:
+            - build
+          filters:
+            branches:
+              ignore:
+                - gh-pages
+                - artifacts
+      - coverage:
+          requires:
+            - build
+          filters:
+            branches:
+              ignore:
+                - gh-pages
+                - artifacts
+      - publish:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
