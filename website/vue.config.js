@@ -1,3 +1,3 @@
 module.exports = {
-  publicPath: 'swap-and-call'
+  publicPath: '/swap-and-call/'
 }
