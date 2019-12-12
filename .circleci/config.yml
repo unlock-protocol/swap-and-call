@@ -24,10 +24,6 @@ jobs:
           at: ~/repo
 
       - run: npm run test
-
-      - run: cd samples/truffle && npm i
-      - run: cd samples/truffle && npm run test
-
       - run: npm run lintNoFix
   coverage:
     docker:
