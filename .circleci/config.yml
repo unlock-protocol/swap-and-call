@@ -94,11 +94,8 @@ workflows:
               ignore:
                 - gh-pages
                 - artifacts
-          filters:
             tags:
               only: /^v.*/
-            branches:
-              ignore: /.*/
       - publish:
           requires:
             - website
