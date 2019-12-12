@@ -36,7 +36,7 @@
   "dependencies": {
     "@vue/cli": "4.1.1",
     "bignumber.js": "9.0.0",
-    "hardlydifficult-ethereum-contracts": "0.7.3"
+    "hardlydifficult-ethereum-contracts": "0.7.7"
   },
   "devDependencies": {
     "@codechecks/client": "0.1.10",

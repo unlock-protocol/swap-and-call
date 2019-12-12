@@ -12,7 +12,7 @@ contract("contracts / tokens / ERC20 / uniswapAndCall", accounts => {
 
   before(async () => {
     // Token
-    token = await tokens.dai.deploy(web3, owner);
+    token = await tokens.sai.deploy(web3, owner);
 
     // Uniswap exchange with liquidity for testing
     const uniswap = await protocols.uniswap.deploy(web3, owner);
