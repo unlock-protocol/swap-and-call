@@ -86,6 +86,8 @@ workflows:
               ignore:
                 - gh-pages
                 - artifacts
+            tags:
+              only: /^v.*/
       - publish:
           requires:
             - website
