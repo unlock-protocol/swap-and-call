@@ -11,8 +11,10 @@ jobs:
       - run: npm run compile
 
       - persist_to_workspace:
-          root: ~/repo
-          paths: .
+          root: '..'
+          paths:
+            - repo
+            - .ssh
   test:
     docker:
       - image: circleci/node:10
@@ -21,7 +23,7 @@ jobs:
     working_directory: ~/repo
     steps:
       - attach_workspace:
-          at: ~/repo
+          at: '..'
 
       - run: npm run test
       - run: npm run lintNoFix
@@ -31,7 +33,7 @@ jobs:
     working_directory: ~/repo
     steps:
       - attach_workspace:
-          at: ~/repo
+          at: '..'
 
       - run: npm run coverage
   website:
@@ -40,7 +42,7 @@ jobs:
     working_directory: ~/repo
     steps:
       - attach_workspace:
-          at: ~/repo
+          at: '..'
 
       - run: cd website && npm i
       - run: cd website && npm run build
@@ -54,7 +56,7 @@ jobs:
     working_directory: ~/repo
     steps:
       - attach_workspace:
-          at: ~/repo
+          at: '..'
       - run: ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 
       # Push website
