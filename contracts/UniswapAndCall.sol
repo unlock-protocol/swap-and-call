@@ -34,7 +34,7 @@ contract UniswapAndCall is
   {
     // Swap ether for tokens
     IUniswapExchange exchange = IUniswapExchange(uniswapFactory.getExchange(_token));
-    exchange.ethToTokenSwapOutput.value(msg.value)(_tokenAmount, _deadline);
+    exchange.ethToTokenSwapOutput.value(address(this).balance)(_tokenAmount, _deadline);
 
     // Approve spending and call the contract
     IERC20(_token).approve(_contract, _tokenAmount);
