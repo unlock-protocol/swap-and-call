@@ -1,3 +1,4 @@
+const BigNumber = require("bignumber.js");
 const { protocols, tokens } = require("hardlydifficult-ethereum-contracts");
 const UniswapAndCall = artifacts.require("UniswapAndCall.sol");
 const truffleAssert = require("truffle-assertions");
@@ -69,13 +70,14 @@ contract("contracts / tokens / ERC20 / uniswapAndCall", accounts => {
     );
     await uniswapAndCall.uniswapEthAndCall(
       token.address,
-      keyPrice,
-      Math.round(Date.now() / 1000) + 60,
+      false,
       lock.address,
       callData,
       {
         from: accounts[2],
-        value: await exchange.getEthToTokenOutputPrice(keyPrice)
+        value: new BigNumber(await exchange.getEthToTokenOutputPrice(keyPrice))
+          .times(1.1)
+          .dp(0, BigNumber.ROUND_UP)
       }
     );
 
