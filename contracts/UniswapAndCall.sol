@@ -82,8 +82,7 @@ contract UniswapAndCall is
 
     uint refund = 0;
 
-    // Check for any unspent tokens, this is only applicable if the _contract is not predictable
-    // or if tokens remain in the contract from a previous user
+    // Check for any unspent tokens to refund
     uint balance = _token.balanceOf(address(this));
     if(balance > 0)
     {
