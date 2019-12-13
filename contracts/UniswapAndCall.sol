@@ -1,7 +1,8 @@
 pragma solidity ^0.5.0;
 
-import '@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol';
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/utils/Address.sol';
+import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import 'hardlydifficult-ethereum-contracts/contracts/interfaces/IUniswapFactory.sol';
 import 'hardlydifficult-ethereum-contracts/contracts/interfaces/IUniswapExchange.sol';
 import 'hardlydifficult-ethereum-contracts/contracts/proxies/CallContract.sol';
@@ -12,7 +13,8 @@ import 'hardlydifficult-ethereum-contracts/contracts/proxies/CallContract.sol';
  * @notice Swaps tokens with Uniswap, calls another contract with approval to spend
  * the tokens, and then refunds anything remaining.
  */
-contract UniswapAndCall
+contract UniswapAndCall is
+  ReentrancyGuard
 {
   using Address for address;
   using CallContract for address;
@@ -23,13 +25,15 @@ contract UniswapAndCall
    */
   IUniswapFactory public uniswapFactory;
 
-  // TODO maybe we cache exchanges with approvals already set.
-  // Safe because it's looked up from the trusted factory.
-
-  // TODO do we maybe also cache the contact (lock address)? to save approvals.
-  // Not safe? Call lock, calls hook, reenter, steal refund
-  // Would need to clean up approvals to make this safe?
-  // Add a re-entrancy block? Overkill?
+  event SwapAndCall(
+    address indexed _sender,
+    address _fromToken,
+    address _toToken,
+    address indexed _contract,
+    uint _amountIn,
+    bool _swapBack,
+    uint _amountRefunded
+  );
 
   constructor(
     IUniswapFactory _uniswapFactory
@@ -53,10 +57,11 @@ contract UniswapAndCall
    */
   function uniswapEthAndCall(
     IERC20 _token,
-    bool _swapBack,
     address _contract,
-    bytes memory _callData
+    bytes memory _callData,
+    bool _swapBack
   ) public payable
+    nonReentrant()
   {
     // Lookup the exchange address for the target token type
     IUniswapExchange exchange = IUniswapExchange(
@@ -69,10 +74,13 @@ contract UniswapAndCall
     exchange.ethToTokenSwapInput.value(address(this).balance)(1, uint(-1));
 
     // Approve the 3rd party contract to spend the newly aquired tokens
-    _token.approve(_contract, uint(-1));
+    // TODO: could save ~25k gas by pre-approving once for all users
+    _token.approve(_contract, uint(-1)); // Costs 24,966 gas
     // Call the 3rd party contract. This is expected to consume some or all of our tokens (but may not)
     // If the call reverts then this entire transaction will revert and ETH is refunded.
     _contract._call(0, _callData);
+
+    uint refund = 0;
 
     // Check for any unspent tokens, this is only applicable if the _contract is not predictable
     // or if tokens remain in the contract from a previous user
@@ -81,18 +89,20 @@ contract UniswapAndCall
     {
       if(_swapBack)
       {
-        uint value = exchange.getTokenToEthInputPrice(balance);
-        if(value > 0) // TODO change to >= minEstimatedGas * gasPrice
+        refund = exchange.getTokenToEthInputPrice(balance);
+        if(refund > 0) // TODO maybe consider >= minEstimatedGas * gasPrice
         {
           // If we can get at least a wei for it, let's sell and refund the remainder
-          _token.approve(address(exchange), balance);
+          // Approve spending enabling the swap back feature
+          // TODO: could save ~25k gas by pre-approving once for all users
+          _token.approve(address(exchange), uint(-1));
           exchange.tokenToEthSwapInput(balance, 1, uint(-1));
 
           // Refund any ETH collected from the swap back
-          value = address(this).balance;
-          if(value > 0) // TODO change to >= minEstimatedGas * gasPrice
+          refund = address(this).balance;
+          if(refund > 0) // TODO maybe consider >= minEstimatedGas * gasPrice
           {
-            msg.sender.transfer(value);
+            msg.sender.transfer(refund);
           }
         }
         /**
@@ -104,10 +114,21 @@ contract UniswapAndCall
       }
       else
       {
+        refund = balance;
         // Send any tokens remaining back to the msg.sender.
-        _token.transfer(msg.sender, balance);
+        _token.transfer(msg.sender, refund);
       }
     }
+
+    emit SwapAndCall(
+      msg.sender,
+      address(0),
+      address(_token),
+      _contract,
+      msg.value,
+      _swapBack,
+      refund
+    );
   }
 
   // TODO add support for Token -> ETH and Token -> Token swap then call

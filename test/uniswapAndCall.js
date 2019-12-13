@@ -11,7 +11,7 @@ contract("contracts / tokens / ERC20 / uniswapAndCall", accounts => {
   let lock;
   let uniswapAndCall;
 
-  before(async () => {
+  beforeEach(async () => {
     // Token
     token = await tokens.sai.deploy(web3, owner);
 
@@ -63,6 +63,21 @@ contract("contracts / tokens / ERC20 / uniswapAndCall", accounts => {
     );
   });
 
+  describe("Purchase with tokens", () => {
+    beforeEach(async () => {
+      await token.mint(accounts[2], "1000000000000000000000000", {
+        from: owner
+      });
+      await token.approve(lock.address, -1, { from: accounts[2] });
+    });
+
+    it("Sanity check: Can purchase keys with tokens", async () => {
+      await lock.purchaseFor(accounts[2], {
+        from: accounts[2]
+      });
+    });
+  });
+
   it("Can purchase keys with ether via UniswapAndCall", async () => {
     const callData = web3.eth.abi.encodeFunctionCall(
       lock.abi.find(e => e.name === "purchaseFor"),
@@ -70,9 +85,9 @@ contract("contracts / tokens / ERC20 / uniswapAndCall", accounts => {
     );
     await uniswapAndCall.uniswapEthAndCall(
       token.address,
-      false,
       lock.address,
       callData,
+      true,
       {
         from: accounts[2],
         value: new BigNumber(await exchange.getEthToTokenOutputPrice(keyPrice))
