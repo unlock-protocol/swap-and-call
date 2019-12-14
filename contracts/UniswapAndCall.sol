@@ -68,7 +68,7 @@ contract UniswapAndCall is
     exchange.ethToTokenSwapOutput.value(address(this).balance)(_targetAmount, uint(-1));
 
     _targetToken.approve(_contract, _targetAmount);
-    _contract._call(0, _callData);
+    _contract._call(_callData, 0);
     require(_targetToken.balanceOf(address(this)) == 0, 'INCORRECT_TARGET_AMOUNT');
 
     uint refund = address(this).balance;
@@ -165,6 +165,6 @@ contract UniswapAndCall is
   ) public
   {
     uint price = _contract._readUint(_priceCallData);
-    uniswapTokenToEthAndCall(_sourceToken, _amountIn, price, _contract, _priceCallData, _callData);
+    uniswapTokenToEthAndCall(_sourceToken, _amountIn, price, _contract, _callData);
   }
 }
