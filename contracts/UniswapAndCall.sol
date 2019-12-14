@@ -1,26 +1,31 @@
 pragma solidity ^0.5.0;
 
+import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
-import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
-import 'hardlydifficult-ethereum-contracts/contracts/interfaces/IUniswapFactory.sol';
-import 'hardlydifficult-ethereum-contracts/contracts/interfaces/IUniswapExchange.sol';
 import 'hardlydifficult-ethereum-contracts/contracts/proxies/CallContract.sol';
 import 'hardlydifficult-ethereum-contracts/contracts/utils/Gas.sol';
+import 'hardlydifficult-ethereum-contracts/contracts/interfaces/IUniswapExchange.sol';
+import 'hardlydifficult-ethereum-contracts/contracts/interfaces/IUniswapFactory.sol';
 
 
 /**
- * @title Uniswap tokens and call contract.
- * @notice Swaps tokens with Uniswap, calls another contract with approval to spend
- * the tokens, and then refunds anything remaining.
+ * @title Uniswap and call contract.
+ * @notice Swaps ETH or tokens with Uniswap, calls another contract with approval to spend
+ * the tokens, and refunds anything remaining.
  */
 contract UniswapAndCall is
+  // Reentrancy could be used to attempt to take a user's expected refund as well.
   ReentrancyGuard
 {
+  // For `isContract`
   using Address for address;
+  // For `sendValue`
   using Address for address payable;
+  // For `_call` and `_readUint`
   using CallContract for address;
+  // For `safe`Approve/Transfer/TransferFrom
   using SafeERC20 for IERC20;
 
   /**
@@ -29,6 +34,7 @@ contract UniswapAndCall is
    */
   IUniswapFactory public uniswapFactory;
 
+  // All the swap calls below will trigger this event when successful
   event SwapAndCall(
     address indexed _sender,
     address _fromToken,
@@ -38,6 +44,10 @@ contract UniswapAndCall is
     uint _amountRefunded
   );
 
+  /**
+   * @notice Initialize the contract with the uniswapFactory for this network.
+   * @dev This address is not hardcoded to enable testing.
+   */
   constructor(
     IUniswapFactory _uniswapFactory
   ) public {
@@ -204,14 +214,14 @@ contract UniswapAndCall is
     // Make the provided tokens available to the Uniswap contract
     _sourceToken.safeApprove(address(exchange), uint(-1));
 
-    // Swap the tokens provided for exactly _targetAmount of _targetTokens
+    // Swap the tokens provided for exactly _targetAmount of ETH
     // Ignore the Uniswap deadline and limits
     exchange.tokenToEthSwapOutput(_targetAmount, uint(-1), uint(-1));
 
     // Call the 3rd party contract
     _contract._call(_callData, _targetAmount);
 
-    // The 3rd party contract must consume all the tokens we swapped for
+    // The 3rd party contract must consume all the ETH we swapped for
     require(address(this).balance == 0, 'INCORRECT_TARGET_AMOUNT');
 
     // Any tokens in the contract at this point can be refunded
