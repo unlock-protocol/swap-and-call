@@ -27,6 +27,7 @@ jobs:
 
       - run: npm run test
       - run: npm run lintNoFix
+      - run: npm run codechecks
   coverage:
     docker:
       - image: circleci/node:10

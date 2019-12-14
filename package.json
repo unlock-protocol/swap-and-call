@@ -9,7 +9,8 @@
     "lint": "solium -d contracts --fix && eslint . --fix",
     "lintNoFix": "solium -d contracts && eslint .",
     "coverage": "truffle run coverage && cat coverage/lcov.info | coveralls",
-    "ganache": "ganache-cli -k istanbul"
+    "ganache": "ganache-cli -k istanbul",
+    "codechecks": "codechecks"
   },
   "files": [
     "build",

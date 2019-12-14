@@ -66,12 +66,22 @@ contract UniswapAndCall is
       uniswapFactory.getExchange(address(_targetToken))
     );
 
+    // Swap the ETH provided for exactly _targetAmount of tokens
+    // balance is used here instead of msg.value in case the contract has a little dust left behind
+    // Ignore the Uniswap deadline
+    // Uniswap will send any remaining ETH back to this contract
     exchange.ethToTokenSwapOutput.value(address(this).balance)(_targetAmount, uint(-1));
 
+    // Approve the 3rd party contract to take tokens from this contract
     _targetToken.approve(_contract, _targetAmount);
+
+    // Call the 3rd party contract
     _contract._call(_callData, 0);
+
+    // The 3rd party contract must consume all the tokens we swapped for
     require(_targetToken.balanceOf(address(this)) == 0, 'INCORRECT_TARGET_AMOUNT');
 
+    // Any ETH in the contract at this point can be refunded
     uint refund = address(this).balance;
     if(refund > Gas.gasPrice() * 21000)
     {
@@ -83,17 +93,17 @@ contract UniswapAndCall is
       refund = 0;
     }
 
-    emit SwapAndCall(
-      msg.sender,
-      address(0),
-      address(_targetToken),
-      _contract,
-      msg.value,
-      refund
-    );
+    emit SwapAndCall({
+      _sender: msg.sender,
+      _fromToken: address(0),
+      _toToken: address(_targetToken),
+      _contract: _contract,
+      _amountIn: msg.value,
+      _amountRefunded: refund
+    });
   }
 
-  function uniswapEthAndCall(
+  function uniswapEthAndCallDynamicPrice(
     IERC20 _targetToken,
     address _contract,
     bytes memory _priceCallData,
@@ -114,20 +124,49 @@ contract UniswapAndCall is
   ) public
     nonReentrant()
   {
-    uint refund = 0;
-    // TODO
-
-    emit SwapAndCall(
-      msg.sender,
-      address(_sourceToken),
-      address(_targetToken),
-      _contract,
-      _amountIn,
-      refund
+    // Lookup the exchange address for the source token type
+    IUniswapExchange exchange = IUniswapExchange(
+      uniswapFactory.getExchange(address(_sourceToken))
     );
+
+    // Collect the tokens provided for the swap
+    _sourceToken.transferFrom(msg.sender, address(this), _amountIn);
+
+    // Make the provided tokens available to the Uniswap contract
+    // balance is used here instead of _amountIn in case the contract has a little dust left behind
+    _sourceToken.approve(address(exchange), _sourceToken.balanceOf(address(this)));
+
+    // Swap the tokens provided for exactly _targetAmount of _targetTokens
+    // Ignore the Uniswap deadline and limits
+    exchange.tokenToTokenSwapOutput(_targetAmount, uint(-1), uint(-1), uint(-1), address(_targetToken));
+
+    // Approve the 3rd party contract to take tokens from this contract
+    _targetToken.approve(_contract, _targetAmount);
+
+    // Call the 3rd party contract
+    _contract._call(_callData, 0);
+
+    // The 3rd party contract must consume all the tokens we swapped for
+    require(_targetToken.balanceOf(address(this)) == 0, 'INCORRECT_TARGET_AMOUNT');
+
+    // Any tokens in the contract at this point can be refunded
+    uint refund = _sourceToken.balanceOf(address(this));
+    if(refund > 0)
+    {
+      _sourceToken.transfer(msg.sender, refund);
+    }
+
+    emit SwapAndCall({
+      _sender: msg.sender,
+      _fromToken: address(_sourceToken),
+      _toToken: address(_targetToken),
+      _contract: _contract,
+      _amountIn: _amountIn,
+      _amountRefunded: refund
+    });
   }
 
-  function uniswapTokenAndCall(
+  function uniswapTokenAndCallDynamicPrice(
     IERC20 _sourceToken,
     uint _amountIn,
     IERC20 _targetToken,
@@ -152,17 +191,17 @@ contract UniswapAndCall is
     uint refund = 0;
     // TODO
 
-    emit SwapAndCall(
-      msg.sender,
-      address(_sourceToken),
-      address(0),
-      _contract,
-      _amountIn,
-      refund
-    );
+    emit SwapAndCall({
+      _sender: msg.sender,
+      _fromToken: address(_sourceToken),
+      _toToken: address(0),
+      _contract: _contract,
+      _amountIn: _amountIn,
+      _amountRefunded: refund
+    });
   }
 
-  function uniswapTokenToEthAndCall(
+  function uniswapTokenToEthAndCallDynamicPrice(
     IERC20 _sourceToken,
     uint _amountIn,
     address _contract,
