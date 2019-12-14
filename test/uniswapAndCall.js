@@ -123,7 +123,7 @@ contract("uniswapAndCall", accounts => {
       });
     });
 
-    it.only("Can purchase keys with sourceTokens via UniswapAndCall", async () => {
+    it("Can purchase keys with sourceTokens via UniswapAndCall", async () => {
       const ethBought = await targetExchange.getEthToTokenOutputPrice(keyPrice);
       console.log(ethBought.toString()); // 4212637916
       const tokenReserve = await sourceToken.balanceOf(sourceExchange.address);
