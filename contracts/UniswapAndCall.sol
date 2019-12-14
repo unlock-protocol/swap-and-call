@@ -146,8 +146,7 @@ contract UniswapAndCall is
     _sourceToken.safeTransferFrom(msg.sender, address(this), _amountIn);
 
     // Make the provided tokens available to the Uniswap contract
-    // balance is used here instead of _amountIn in case the contract has a little dust left behind
-    _sourceToken.safeApprove(address(exchange), _sourceToken.balanceOf(address(this)));
+    _sourceToken.safeApprove(address(exchange), uint(-1));
 
     // Swap the tokens provided for exactly _targetAmount of _targetTokens
     // Ignore the Uniswap deadline and limits
@@ -194,8 +193,33 @@ contract UniswapAndCall is
   ) public
     nonReentrant()
   {
-    uint refund = 0;
-    // TODO
+    // Lookup the exchange address for the source token type
+    IUniswapExchange exchange = IUniswapExchange(
+      uniswapFactory.getExchange(address(_sourceToken))
+    );
+
+    // Collect the tokens provided for the swap
+    _sourceToken.safeTransferFrom(msg.sender, address(this), _amountIn);
+
+    // Make the provided tokens available to the Uniswap contract
+    _sourceToken.safeApprove(address(exchange), uint(-1));
+
+    // Swap the tokens provided for exactly _targetAmount of _targetTokens
+    // Ignore the Uniswap deadline and limits
+    exchange.tokenToEthSwapOutput(_targetAmount, uint(-1), uint(-1));
+
+    // Call the 3rd party contract
+    _contract._call(_callData, _targetAmount);
+
+    // The 3rd party contract must consume all the tokens we swapped for
+    require(address(this).balance == 0, 'INCORRECT_TARGET_AMOUNT');
+
+    // Any tokens in the contract at this point can be refunded
+    uint refund = _sourceToken.balanceOf(address(this));
+    if(refund > 0)
+    {
+      _sourceToken.safeTransfer(msg.sender, refund);
+    }
 
     emit SwapAndCall({
       _sender: msg.sender,
