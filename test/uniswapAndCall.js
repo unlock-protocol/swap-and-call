@@ -36,7 +36,7 @@ contract("uniswapAndCall", accounts => {
   let sourceToken;
   let targetExchange;
   let sourceExchange;
-  let lock;
+  let tokenLock, ethLock;
   let uniswapAndCall;
   let callData;
 
@@ -50,8 +50,16 @@ contract("uniswapAndCall", accounts => {
     targetExchange = await createExchange(uniswap, targetToken, owner);
     sourceExchange = await createExchange(uniswap, sourceToken, owner);
 
+    ethLock = await protocols.unlock.createTestLock(
+      web3,
+      accounts[9], // Unlock Protocol owner
+      accounts[1], // Lock owner
+      {
+        keyPrice
+      }
+    );
     // Lock priced in ERC-20 tokens
-    lock = await protocols.unlock.createTestLock(
+    tokenLock = await protocols.unlock.createTestLock(
       web3,
       accounts[9], // Unlock Protocol owner
       accounts[1], // Lock owner
@@ -61,7 +69,7 @@ contract("uniswapAndCall", accounts => {
       }
     );
     callData = web3.eth.abi.encodeFunctionCall(
-      lock.abi.find(e => e.name === "purchaseFor"),
+      tokenLock.abi.find(e => e.name === "purchaseFor"),
       [testAccount]
     );
 
@@ -71,7 +79,7 @@ contract("uniswapAndCall", accounts => {
 
   it("Sanity check: Can't purchase keys with ether", async () => {
     await truffleAssert.fails(
-      lock.purchaseFor(testAccount, {
+      tokenLock.purchaseFor(testAccount, {
         from: testAccount,
         value: await targetExchange.getEthToTokenOutputPrice(keyPrice)
       })
@@ -83,11 +91,11 @@ contract("uniswapAndCall", accounts => {
       await targetToken.mint(testAccount, "1000000000000000000000000", {
         from: owner
       });
-      await targetToken.approve(lock.address, -1, { from: testAccount });
+      await targetToken.approve(tokenLock.address, -1, { from: testAccount });
     });
 
     it("Sanity check: Can purchase keys with tokens", async () => {
-      await lock.purchaseFor(testAccount, {
+      await tokenLock.purchaseFor(testAccount, {
         from: testAccount
       });
     });
@@ -97,7 +105,7 @@ contract("uniswapAndCall", accounts => {
     await uniswapAndCall.uniswapEthAndCall(
       targetToken.address,
       keyPrice,
-      lock.address,
+      tokenLock.address,
       callData,
       {
         from: testAccount,
@@ -109,7 +117,7 @@ contract("uniswapAndCall", accounts => {
       }
     );
 
-    const hasKey = await lock.getHasValidKey(testAccount);
+    const hasKey = await tokenLock.getHasValidKey(testAccount);
     assert.equal(hasKey, true);
   });
 
@@ -123,20 +131,36 @@ contract("uniswapAndCall", accounts => {
       });
     });
 
-    it("Can purchase keys with sourceTokens via UniswapAndCall", async () => {
+    it("Can purchase token keys with sourceTokens via UniswapAndCall", async () => {
       await uniswapAndCall.uniswapTokenAndCall(
         sourceToken.address,
         await sourceToken.balanceOf(testAccount),
         targetToken.address,
         keyPrice,
-        lock.address,
+        tokenLock.address,
         callData,
         {
           from: testAccount
         }
       );
 
-      const hasKey = await lock.getHasValidKey(testAccount);
+      const hasKey = await tokenLock.getHasValidKey(testAccount);
+      assert.equal(hasKey, true);
+    });
+
+    it("Can purchase eth keys with sourceTokens via UniswapAndCall", async () => {
+      await uniswapAndCall.uniswapTokenToEthAndCall(
+        sourceToken.address,
+        await sourceToken.balanceOf(testAccount),
+        keyPrice,
+        ethLock.address,
+        callData,
+        {
+          from: testAccount
+        }
+      );
+
+      const hasKey = await ethLock.getHasValidKey(testAccount);
       assert.equal(hasKey, true);
     });
   });
