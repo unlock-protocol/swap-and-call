@@ -85,9 +85,9 @@ contract("contracts / tokens / ERC20 / uniswapAndCall", accounts => {
     );
     await uniswapAndCall.uniswapEthAndCall(
       token.address,
+      keyPrice,
       lock.address,
       callData,
-      true,
       {
         from: accounts[2],
         value: new BigNumber(await exchange.getEthToTokenOutputPrice(keyPrice))
