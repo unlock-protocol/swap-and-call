@@ -6,6 +6,7 @@ import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import 'hardlydifficult-ethereum-contracts/contracts/interfaces/IUniswapFactory.sol';
 import 'hardlydifficult-ethereum-contracts/contracts/interfaces/IUniswapExchange.sol';
 import 'hardlydifficult-ethereum-contracts/contracts/proxies/CallContract.sol';
+import 'hardlydifficult-ethereum-contracts/contracts/utils/Gas.sol';
 
 
 /**
@@ -72,9 +73,14 @@ contract UniswapAndCall is
     require(_targetToken.balanceOf(address(this)) == 0, 'INCORRECT_TARGET_AMOUNT');
 
     uint refund = address(this).balance;
-    if(refund > 0) // TODO maybe consider >= minEstimatedGas * gasPrice
+    if(refund > Gas.gasPrice() * 21000)
     {
       msg.sender.transfer(refund);
+    }
+    else
+    {
+      // It's not worth the gas cost to refund so leave the ETH here as a donation to the next user
+      refund = 0;
     }
 
     emit SwapAndCall(
