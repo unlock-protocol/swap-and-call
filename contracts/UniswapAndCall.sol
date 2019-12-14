@@ -48,6 +48,23 @@ contract UniswapAndCall is
    */
   function() external payable {}
 
+  function _callContract(
+    IERC20 _targetToken,
+    uint _targetAmount,
+    address _contract,
+    bytes memory _callData
+  ) private
+  {
+    // Approve the 3rd party contract to take tokens from this contract
+    _targetToken.approve(_contract, _targetAmount);
+
+    // Call the 3rd party contract
+    _contract._call(_callData, 0);
+
+    // The 3rd party contract must consume all the tokens we swapped for
+    require(_targetToken.balanceOf(address(this)) == 0, 'INCORRECT_TARGET_AMOUNT');
+  }
+
   /**
    * @notice Swap ETH for the token a contract expects, make the call, and then refund
    * any ETH remaining.
@@ -72,14 +89,7 @@ contract UniswapAndCall is
     // Uniswap will send any remaining ETH back to this contract
     exchange.ethToTokenSwapOutput.value(address(this).balance)(_targetAmount, uint(-1));
 
-    // Approve the 3rd party contract to take tokens from this contract
-    _targetToken.approve(_contract, _targetAmount);
-
-    // Call the 3rd party contract
-    _contract._call(_callData, 0);
-
-    // The 3rd party contract must consume all the tokens we swapped for
-    require(_targetToken.balanceOf(address(this)) == 0, 'INCORRECT_TARGET_AMOUNT');
+    _callContract(_targetToken, _targetAmount, _contract, _callData);
 
     // Any ETH in the contract at this point can be refunded
     uint refund = address(this).balance;
@@ -140,14 +150,7 @@ contract UniswapAndCall is
     // Ignore the Uniswap deadline and limits
     exchange.tokenToTokenSwapOutput(_targetAmount, uint(-1), uint(-1), uint(-1), address(_targetToken));
 
-    // Approve the 3rd party contract to take tokens from this contract
-    _targetToken.approve(_contract, _targetAmount);
-
-    // Call the 3rd party contract
-    _contract._call(_callData, 0);
-
-    // The 3rd party contract must consume all the tokens we swapped for
-    require(_targetToken.balanceOf(address(this)) == 0, 'INCORRECT_TARGET_AMOUNT');
+    _callContract(_targetToken, _targetAmount, _contract, _callData);
 
     // Any tokens in the contract at this point can be refunded
     uint refund = _sourceToken.balanceOf(address(this));
