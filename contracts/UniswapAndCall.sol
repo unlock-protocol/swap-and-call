@@ -1,6 +1,7 @@
 pragma solidity ^0.5.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import 'hardlydifficult-ethereum-contracts/contracts/interfaces/IUniswapFactory.sol';
@@ -18,7 +19,9 @@ contract UniswapAndCall is
   ReentrancyGuard
 {
   using Address for address;
+  using Address for address payable;
   using CallContract for address;
+  using SafeERC20 for IERC20;
 
   /**
    * @notice The Uniswap factory for this network.
@@ -56,7 +59,7 @@ contract UniswapAndCall is
   ) private
   {
     // Approve the 3rd party contract to take tokens from this contract
-    _targetToken.approve(_contract, _targetAmount);
+    _targetToken.safeApprove(_contract, _targetAmount);
 
     // Call the 3rd party contract
     _contract._call(_callData, 0);
@@ -95,7 +98,7 @@ contract UniswapAndCall is
     uint refund = address(this).balance;
     if(refund > Gas.gasPrice() * 21000)
     {
-      msg.sender.transfer(refund);
+      msg.sender.sendValue(refund);
     }
     else
     {
@@ -140,11 +143,11 @@ contract UniswapAndCall is
     );
 
     // Collect the tokens provided for the swap
-    _sourceToken.transferFrom(msg.sender, address(this), _amountIn);
+    _sourceToken.safeTransferFrom(msg.sender, address(this), _amountIn);
 
     // Make the provided tokens available to the Uniswap contract
     // balance is used here instead of _amountIn in case the contract has a little dust left behind
-    _sourceToken.approve(address(exchange), _sourceToken.balanceOf(address(this)));
+    _sourceToken.safeApprove(address(exchange), _sourceToken.balanceOf(address(this)));
 
     // Swap the tokens provided for exactly _targetAmount of _targetTokens
     // Ignore the Uniswap deadline and limits
@@ -156,7 +159,7 @@ contract UniswapAndCall is
     uint refund = _sourceToken.balanceOf(address(this));
     if(refund > 0)
     {
-      _sourceToken.transfer(msg.sender, refund);
+      _sourceToken.safeTransfer(msg.sender, refund);
     }
 
     emit SwapAndCall({
