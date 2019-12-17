@@ -61,6 +61,24 @@ contract UniswapAndCall is
    */
   function() external payable {}
 
+  /**
+   * @notice Make any arbitrary call.  Generally not used.
+   * @dev This contract is intended to be stateless. If someone were to deposit
+   * tokens into this contract this function could be used to withdraw them.
+   */
+  function proxyCall(
+    address _contract,
+    bytes memory _callData,
+    uint msgValue
+  ) public
+  {
+    _contract._call(_callData, msgValue);
+  }
+
+  /**
+   * @notice Approve and call contract, then require the amount charged matches the expected value.
+   * @dev Used for ERC-20 token calls, ETH has a slightly different flow.
+   */
   function _callContract(
     IERC20 _targetToken,
     uint _targetAmount,
@@ -74,14 +92,16 @@ contract UniswapAndCall is
     // Call the 3rd party contract
     _contract._call(_callData, 0);
 
-    // The 3rd party contract must consume all the tokens we swapped for
-    require(_targetToken.balanceOf(address(this)) == 0, 'INCORRECT_TARGET_AMOUNT');
+    // The 3rd party contract must consume all the tokens we approved for spending
+    // We use this instead of balance in case some tokens have been transferred to the contract
+    require(_targetToken.allowance(address(this), _contract) == 0, 'INCORRECT_TARGET_AMOUNT');
   }
 
   /**
    * @notice Swap ETH for the token a contract expects, make the call, and then refund
    * any ETH remaining.
    * @param _targetToken The ERC-20 token address to get from swapping out the ETH provided.
+   * @param _targetAmount The exact amount which will be consumed by the _contract.
    */
   function uniswapEthAndCall(
     IERC20 _targetToken,
@@ -126,6 +146,10 @@ contract UniswapAndCall is
     });
   }
 
+  /**
+   * @notice `uniswapEthAndCall` for when the exact price is not known until the block is mined.
+   * @param _priceCallData must return the exact cost as a uint.
+   */
   function uniswapEthAndCallDynamicPrice(
     IERC20 _targetToken,
     address _contract,
@@ -137,6 +161,14 @@ contract UniswapAndCall is
     uniswapEthAndCall(_targetToken, price, _contract, _callData);
   }
 
+  /**
+   * @notice Swap a token for the token a contract expects, make the call, and then refund
+   * any of the orginal tokens remaining.
+   * @param _sourceToken The ERC-20 token address the msg.sender is funding for this call.
+   * @param _amountIn The max number of _sourceTokens the msg.sender is willing to spend.
+   * @param _targetToken The ERC-20 token address to get from swapping out the tokens provided.
+   * @param _targetAmount The exact amount which will be consumed by the _contract.
+   */
   function uniswapTokenAndCall(
     IERC20 _sourceToken,
     uint _amountIn,
@@ -181,6 +213,10 @@ contract UniswapAndCall is
     });
   }
 
+  /**
+   * @notice `uniswapTokenAndCall` for when the exact price is not known until the block is mined.
+   * @param _priceCallData must return the exact cost as a uint.
+   */
   function uniswapTokenAndCallDynamicPrice(
     IERC20 _sourceToken,
     uint _amountIn,
@@ -194,6 +230,13 @@ contract UniswapAndCall is
     uniswapTokenAndCall(_sourceToken, _amountIn, _targetToken, price, _contract, _callData);
   }
 
+  /**
+   * @notice Swap a token for the ETH a contract expects, make the call, and then refund
+   * any tokens remaining.
+   * @param _amountIn The max number of _sourceTokens the msg.sender is willing to spend.
+   * @param _sourceToken The ERC-20 token address the msg.sender is funding for this call.
+   * @param _targetAmount The exact amount which will be consumed by the _contract.
+   */
   function uniswapTokenToEthAndCall(
     IERC20 _sourceToken,
     uint _amountIn,
@@ -203,6 +246,13 @@ contract UniswapAndCall is
   ) public
     nonReentrant()
   {
+    if(address(this).balance != 0)
+    {
+      // If funds are in the contract it would break our check below
+      // so just give it to the msg.sender before we start
+      msg.sender.sendValue(address(this).balance);
+    }
+
     // Lookup the exchange address for the source token type
     IUniswapExchange exchange = IUniswapExchange(
       uniswapFactory.getExchange(address(_sourceToken))
@@ -241,6 +291,10 @@ contract UniswapAndCall is
     });
   }
 
+  /**
+   * @notice `uniswapTokenToEthAndCall` for when the exact price is not known until the block is mined.
+   * @param _priceCallData must return the exact cost as a uint.
+   */
   function uniswapTokenToEthAndCallDynamicPrice(
     IERC20 _sourceToken,
     uint _amountIn,
