@@ -126,7 +126,7 @@ contract UniswapAndCall is
 
     // Any ETH in the contract at this point can be refunded
     uint refund = address(this).balance;
-    if(refund > Gas.gasPrice() * 21000)
+    if(refund > Gas.gasPrice() * 2100)
     {
       msg.sender.sendValue(refund);
     }
