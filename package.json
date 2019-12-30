@@ -36,8 +36,8 @@
   "homepage": "https://github.com/HardlyDifficult/swap-and-call/#readme",
   "dependencies": {
     "@openzeppelin/contracts": "2.4.0",
-    "@typescript-eslint/eslint-plugin": "2.12.0",
-    "@typescript-eslint/parser": "2.12.0",
+    "@typescript-eslint/eslint-plugin": "2.14.0",
+    "@typescript-eslint/parser": "2.14.0",
     "@vue/cli": "4.1.1",
     "bignumber.js": "9.0.0",
     "hardlydifficult-ethereum-contracts": "0.7.11"
