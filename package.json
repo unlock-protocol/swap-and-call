@@ -18,6 +18,9 @@
     "src",
     "index.js"
   ],
+  "engines": {
+    "node": "^10"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/HardlyDifficult/swap-and-call.git"
