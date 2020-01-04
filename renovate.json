@@ -7,7 +7,7 @@
   ],
   "timezone": "America/Los_Angeles",
   "rebaseStalePrs": false,
-  "engines": {
+  "node": {
     "extends": [":preserveSemverRanges"]
   },
   "minor": {
