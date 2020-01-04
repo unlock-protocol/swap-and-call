@@ -19,12 +19,6 @@
       "major": {
         "groupName": null
       }
-    },
-    {
-      "packagePatterns": ["^eslint"],
-      "minor": {
-        "groupName": "eslint"
-      }
     }
   ]
 }
