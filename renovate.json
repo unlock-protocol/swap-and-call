@@ -3,13 +3,11 @@
     "config:base",
     ":prHourlyLimitNone",
     ":prConcurrentLimitNone",
-    ":pinVersions"
+    ":pinVersions",
+    ":doNotPinPackage(node)"
   ],
   "timezone": "America/Los_Angeles",
   "rebaseStalePrs": false,
-  "node": {
-    "extends": [":preserveSemverRanges"]
-  },
   "minor": {
     "groupName": "minor and patch updates"
   },
