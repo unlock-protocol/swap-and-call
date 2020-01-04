@@ -6,7 +6,6 @@
     ":pinVersions"
   ],
   "timezone": "America/Los_Angeles",
-  "schedule": ["every hour"],
   "rebaseStalePrs": false,
   "engines": {
     "enabled": false
