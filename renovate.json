@@ -1,5 +1,27 @@
 {
   "extends": [
-    "config:base"
+    "config:base",
+    ":prHourlyLimitNone",
+    ":prConcurrentLimitNone",
+    ":pinVersions"
+  ],
+  "timezone": "America/Los_Angeles",
+  "schedule": ["every hour"],
+  "rebaseStalePrs": false,
+  "engines": {
+    "enabled": false
+  },
+  "minor": {
+    "groupName": "minor and patch updates"
+  },
+  "packageRules": [
+    {
+      "packagePatterns": [
+        "*"
+      ],
+      "major": {
+        "groupName": null
+      }
+    }
   ]
 }
