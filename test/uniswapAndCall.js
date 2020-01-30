@@ -1,11 +1,7 @@
 const BigNumber = require("bignumber.js");
-const {
-  constants,
-  protocols,
-  tokens
-} = require("hardlydifficult-ethereum-contracts");
+const { protocols, tokens } = require("hardlydifficult-ethereum-contracts");
 const SwapAndCall = artifacts.require("SwapAndCall.sol");
-const truffleAssert = require("truffle-assertions");
+const { reverts, fails } = require("truffle-assertions");
 const makeCalls = require("./helpers/makeCalls");
 
 async function createAndFundExchange(uniswap, token, tokenOwner) {
@@ -77,7 +73,7 @@ contract("swapAndCall", accounts => {
   });
 
   it("Sanity check: Can't purchase keys with ether", async () => {
-    await truffleAssert.fails(
+    await fails(
       tokenLock.purchaseFor(testAccount, {
         from: testAccount,
         value: await targetExchange.getEthToTokenOutputPrice(keyPrice)
@@ -115,7 +111,7 @@ contract("swapAndCall", accounts => {
       calls.push({
         contract: targetToken.address,
         callData: targetToken.contract.methods
-          .approve(tokenLock.address, -1)
+          .approve(tokenLock.address, keyPrice) // using the exact amount when possible saves gas
           .encodeABI()
       });
       // Call purchase on the Lock
@@ -154,6 +150,7 @@ contract("swapAndCall", accounts => {
       await sourceToken.mint(testAccount, "1000000000000000000000000", {
         from: owner
       });
+      // Infinite approval for the tokenSpender allows us to call this once for many swapAndCalls
       await sourceToken.approve(await swapAndCall.tokenSpender(), -1, {
         from: testAccount
       });
@@ -174,7 +171,7 @@ contract("swapAndCall", accounts => {
         calls.push({
           contract: sourceToken.address,
           callData: sourceToken.contract.methods
-            .approve(sourceExchange.address, -1)
+            .approve(sourceExchange.address, sourceValue.toFixed()) // Exact approval saves gas
             .encodeABI()
         });
         // Swap tokens provided into the target token
@@ -188,7 +185,7 @@ contract("swapAndCall", accounts => {
         calls.push({
           contract: targetToken.address,
           callData: targetToken.contract.methods
-            .approve(tokenLock.address, -1)
+            .approve(tokenLock.address, keyPrice) // Exact approval saves gas
             .encodeABI()
         });
         // Call purchase on the Lock
@@ -245,7 +242,7 @@ contract("swapAndCall", accounts => {
         calls.push({
           contract: sourceToken.address,
           callData: sourceToken.contract.methods
-            .approve(sourceExchange.address, -1)
+            .approve(sourceExchange.address, sourceValue.toFixed()) // Exact approval saves gas
             .encodeABI()
         });
         // Swap tokens provided into the target token
@@ -288,6 +285,56 @@ contract("swapAndCall", accounts => {
       it("Has no source tokens left behind", async () => {
         const balance = await sourceToken.balanceOf(swapAndCall.address);
         assert.equal(balance, 0);
+      });
+    });
+
+    describe("Purchase fails when paused", () => {
+      beforeEach(async () => {
+        await swapAndCall.pause();
+      });
+
+      it("should fail", async () => {
+        const calls = [];
+        const sourceValue = new BigNumber(
+          await sourceExchange.getTokenToEthOutputPrice(keyPrice)
+        )
+          .times(1.1)
+          .dp(0, BigNumber.ROUND_UP);
+        // Approve the exchange to take source tokens from the swapAndCall contract
+        calls.push({
+          contract: sourceToken.address,
+          callData: sourceToken.contract.methods
+            .approve(sourceExchange.address, sourceValue.toFixed())
+            .encodeABI()
+        });
+        // Swap tokens provided into the target token
+        calls.push({
+          contract: sourceExchange.address,
+          callData: sourceExchange.contract.methods
+            .tokenToEthSwapOutput(keyPrice, -1, -1)
+            .encodeABI()
+        });
+        // Call purchase on the Lock
+        calls.push({
+          contract: ethLock.address,
+          callData: ethLock.contract.methods
+            .purchaseFor(testAccount)
+            .encodeABI(),
+          value: keyPrice
+        });
+        await reverts(
+          makeCalls(
+            swapAndCall,
+            sourceToken.address,
+            sourceValue,
+            calls,
+            undefined,
+            {
+              from: testAccount
+            }
+          ),
+          "Pausable: paused"
+        );
       });
     });
   });

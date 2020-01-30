@@ -3,6 +3,7 @@ pragma solidity ^0.5.0;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
+import '@openzeppelin/contracts/lifecycle/Pausable.sol';
 import 'hardlydifficult-ethereum-contracts/contracts/proxies/CallContract.sol';
 import './TokenSpender.sol';
 
@@ -16,7 +17,7 @@ import './TokenSpender.sol';
  * Idea from 1inch.exchange
  * https://etherscan.io/address/0x11111254369792b2Ca5d084aB5eEA397cA8fa48B#code
  */
-contract SwapAndCall
+contract SwapAndCall is Pausable
 {
   using Address for address payable;
   using CallContract for address;
@@ -40,7 +41,11 @@ contract SwapAndCall
    * @notice accept ETH from other contracts.
    * @dev this is required for some calls such as a Uniswap from tokens to ETH.
    */
-  function() external payable {}
+  function() external payable
+  {
+    // solium-disable-next-line security/no-tx-origin
+    require(msg.sender != tx.origin);
+  }
 
   /**
    * @notice a helper function for swapAndCall.
@@ -113,6 +118,7 @@ contract SwapAndCall
     uint[] calldata _values,
     IERC20 _tokenToRefund
   ) external payable
+    whenNotPaused()
   {
     // Collect ERC-20 tokens to use with the calls below (if applicable)
     if(_sourceAmount > 0)
